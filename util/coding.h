@@ -6,7 +6,7 @@
 // * Fixed-length numbers are encoded with least-significant byte first
 // * In addition we support variable length "varint" encoding
 // * Strings are encoded prefixed by their length in varint format
-
+//leveldb 采用了 protocalbuffer 里使用的变长整形编码方法，节省空间
 #ifndef STORAGE_LEVELDB_UTIL_CODING_H_
 #define STORAGE_LEVELDB_UTIL_CODING_H_
 

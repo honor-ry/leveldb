@@ -15,12 +15,17 @@
 #define FALLTHROUGH_INTENDED \
   do {                       \
   } while (0)
-#endif
-
+#endif   //这里的FALLTHROUGH_INTENDED宏没有实际作用
+/*
+每次按照四字节长度读取字节流中的数据 w，并使用普通的哈希函数计算哈希值。
+计算过程中使用 uint32_t 的自然溢出特性。四字节读取则为了加速，
+最终可能剩下 3/2/1 个多余的字节，使用 switch 语句补充计算，以实现最好的性能。
+leveldb中哈希表和布隆过滤器会使用到该哈希函数，未看懂如何实现的
+*/
 namespace leveldb {
 
 uint32_t Hash(const char* data, size_t n, uint32_t seed) {
-  // Similar to murmur hash
+  // Similar to murmur hash 和非加密型hash相似，适用于基于hash进行查找的场景
   const uint32_t m = 0xc6a4a793;
   const uint32_t r = 24;
   const char* limit = data + n;

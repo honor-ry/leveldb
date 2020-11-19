@@ -22,7 +22,7 @@ class Writer {
   // Create a writer that will append data to "*dest".
   // "*dest" must be initially empty.
   // "*dest" must remain live while this Writer is in use.
-  explicit Writer(WritableFile* dest);
+  explicit Writer(WritableFile* dest); //explicit抑制隐式类型转换，一般只将单个参数的constructor声明为explicit
 
   // Create a writer that will append data to "*dest".
   // "*dest" must have initial length "dest_length".

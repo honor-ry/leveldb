@@ -22,16 +22,16 @@ namespace leveldb {
 // Grouping of constants.  We may want to make some of these
 // parameters set via options.
 namespace config {
-static const int kNumLevels = 7;
+static const int kNumLevels = 7;//level的最大值
 
 // Level-0 compaction is started when we hit this many files.
-static const int kL0_CompactionTrigger = 4;
+static const int kL0_CompactionTrigger = 4;//level-0 中 sstable 的数量超过这个阈值，触发 compact
 
 // Soft limit on number of level-0 files.  We slow down writes at this point.
-static const int kL0_SlowdownWritesTrigger = 8;
+static const int kL0_SlowdownWritesTrigger = 8;//level-0 中 sstable 的数量超过这个阈值, 慢处理此次写(sleep1ms）
 
 // Maximum number of level-0 files.  We stop writes at this point.
-static const int kL0_StopWritesTrigger = 12;
+static const int kL0_StopWritesTrigger = 12;//level-0 中 sstable 的数量超过这个阈值, 阻塞至compact memtable 完成
 
 // Maximum level to which a new compacted memtable is pushed if it
 // does not create overlap.  We try to push to level 2 to avoid the
@@ -42,7 +42,7 @@ static const int kL0_StopWritesTrigger = 12;
 static const int kMaxMemCompactLevel = 2;
 
 // Approximate gap in bytes between samples of data read during iteration.
-static const int kReadBytesPeriod = 1048576;
+static const int kReadBytesPeriod = 1048576;//迭代期间读取的数据样本之间的近似间隔
 
 }  // namespace config
 
@@ -51,7 +51,7 @@ class InternalKey;
 // Value types encoded as the last component of internal keys.
 // DO NOT CHANGE THESE ENUM VALUES: they are embedded in the on-disk
 // data structures.
-enum ValueType { kTypeDeletion = 0x0, kTypeValue = 0x1 };
+enum ValueType { kTypeDeletion = 0x0, kTypeValue = 0x1 }; //enum枚举数据类型
 // kValueTypeForSeek defines the ValueType that should be passed when
 // constructing a ParsedInternalKey object for seeking to a particular
 // sequence number (since we sort sequence numbers in decreasing order
@@ -64,12 +64,12 @@ typedef uint64_t SequenceNumber;
 
 // We leave eight bits empty at the bottom so a type and sequence#
 // can be packed together into 64-bits.
-static const SequenceNumber kMaxSequenceNumber = ((0x1ull << 56) - 1);
-
-struct ParsedInternalKey {
-  Slice user_key;
-  SequenceNumber sequence;
-  ValueType type;
+static const SequenceNumber kMaxSequenceNumber = ((0x1ull << 56) - 1);//kMaxSequenceNumber为64位无符号数，定义了其最大值为2^56-1
+                                                     //整个0x1ull代表的含义是无符号64位整型常量1，用16进制表示
+struct ParsedInternalKey { //ParsedInternalKey结构体的定义   
+  Slice user_key;          //InternalKey应该是对user_key的封装，在其基础上加入了序列号sequence和值类型type
+  SequenceNumber sequence;   //sequence占用56bit
+  ValueType type;  //剩下8bit给type
 
   ParsedInternalKey() {}  // Intentionally left uninitialized (for speed)
   ParsedInternalKey(const Slice& u, const SequenceNumber& seq, ValueType t)

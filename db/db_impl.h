@@ -80,9 +80,9 @@ class DBImpl : public DB {
   struct ManualCompaction {
     int level;
     bool done;
-    const InternalKey* begin;  // null means beginning of key range
-    const InternalKey* end;    // null means end of key range
-    InternalKey tmp_storage;   // Used to keep track of compaction progress
+    const InternalKey* begin;  // null means beginning of key range  表示键范围的开始
+    const InternalKey* end;    // null means end of key range   表示键范围的结尾
+    InternalKey tmp_storage;   // Used to keep track of compaction progress 用于跟踪compaction进度
   };
 
   // Per level compaction stats.  stats_[level] stores the stats for

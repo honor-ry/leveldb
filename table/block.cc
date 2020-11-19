@@ -14,7 +14,8 @@
 #include "table/format.h"
 #include "util/coding.h"
 #include "util/logging.h"
-
+//sstable的数据由一个个的block组成，当持久化数据时，多份KV聚合成block一次写入，当读取时，也是以block为单位做IO
+//sstable的索引信息中会保存符合key-range的block在文件中的offset/size（BlockHandle）
 namespace leveldb {
 
 inline uint32_t Block::NumRestarts() const {

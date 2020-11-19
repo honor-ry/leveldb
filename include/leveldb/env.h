@@ -9,7 +9,10 @@
 //
 // All Env implementations are safe for concurrent access from
 // multiple threads without any external synchronization.
-
+/*
+考虑到移植以及灵活性，leveldb 将系统相关的处理（文件/进程/时间之类）抽象成Env，用户可以自
+己实现相应的接口，作为 Option 传入。默认使用自带的实现。
+*/
 #ifndef STORAGE_LEVELDB_INCLUDE_ENV_H_
 #define STORAGE_LEVELDB_INCLUDE_ENV_H_
 

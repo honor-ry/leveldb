@@ -23,14 +23,14 @@ class Arena {
   ~Arena();
 
   // Return a pointer to a newly allocated memory block of "bytes" bytes.
-  char* Allocate(size_t bytes);
+  char* Allocate(size_t bytes);  //实现申请指定大小的内存
 
   // Allocate memory with the normal alignment guarantees provided by malloc.
-  char* AllocateAligned(size_t bytes);
+  char* AllocateAligned(size_t bytes);  //申请对齐的指定大小内存
 
   // Returns an estimate of the total memory usage of data allocated
   // by the arena.
-  size_t MemoryUsage() const {
+  size_t MemoryUsage() const {  //查询内存
     return memory_usage_.load(std::memory_order_relaxed);
   }
 

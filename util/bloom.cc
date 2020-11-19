@@ -8,7 +8,7 @@
 #include "util/hash.h"
 
 namespace leveldb {
-
+ 
 namespace {
 static uint32_t BloomHash(const Slice& key) {
   return Hash(key.data(), key.size(), 0xbc9f1d34);
@@ -18,7 +18,7 @@ class BloomFilterPolicy : public FilterPolicy {
  public:
   explicit BloomFilterPolicy(int bits_per_key) : bits_per_key_(bits_per_key) {
     // We intentionally round down to reduce probing cost a little bit
-    k_ = static_cast<size_t>(bits_per_key * 0.69);  // 0.69 =~ ln(2)
+    k_ = static_cast<size_t>(bits_per_key * 0.69);  // 0.69 =~ ln(2)   k_即为布隆过滤器中哈希函数的数目K
     if (k_ < 1) k_ = 1;
     if (k_ > 30) k_ = 30;
   }
@@ -38,11 +38,11 @@ class BloomFilterPolicy : public FilterPolicy {
 
     const size_t init_size = dst->size();
     dst->resize(init_size + bytes, 0);
-    dst->push_back(static_cast<char>(k_));  // Remember # of probes in filter
+    dst->push_back(static_cast<char>(k_));  // Remember # of probes in filter   h(key,i)=h1(key)+i⋅h2(key)
     char* array = &(*dst)[init_size];
     for (int i = 0; i < n; i++) {
-      // Use double-hashing to generate a sequence of hash values.
-      // See analysis in [Kirsch,Mitzenmacher 2006].
+      // Use double-hashing to generate a sequence of hash values. 使用double hash生成一系列哈希值，一般用于开放寻址哈希的优化。
+      // See analysis in [Kirsch,Mitzenmacher 2006].  上面公式的h1为代码中的BloomHash函数，而h2为代码中的delta，也就是h1(key)循环移位17位的结果
       uint32_t h = BloomHash(keys[i]);
       const uint32_t delta = (h >> 17) | (h << 15);  // Rotate right 17 bits
       for (size_t j = 0; j < k_; j++) {
@@ -53,7 +53,7 @@ class BloomFilterPolicy : public FilterPolicy {
     }
   }
 
-  bool KeyMayMatch(const Slice& key, const Slice& bloom_filter) const override {
+  bool KeyMayMatch(const Slice& key, const Slice& bloom_filter) const override {  //重写 具有相同的类型，名称和参数列表 被重写的函数不能是static，必须是virtual
     const size_t len = bloom_filter.size();
     if (len < 2) return false;
 

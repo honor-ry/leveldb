@@ -41,17 +41,17 @@ namespace {
 // An entry is a variable length heap-allocated structure.  Entries
 // are kept in a circular doubly linked list ordered by access time.
 struct LRUHandle {
-  void* value;
-  void (*deleter)(const Slice&, void* value);
-  LRUHandle* next_hash;
-  LRUHandle* next;
-  LRUHandle* prev;
-  size_t charge;  // TODO(opt): Only allow uint32_t?
-  size_t key_length;
-  bool in_cache;     // Whether entry is in the cache.
-  uint32_t refs;     // References, including cache reference, if present.
-  uint32_t hash;     // Hash of key(); used for fast sharding and comparisons
-  char key_data[1];  // Beginning of key
+  void* value; //为缓存存储的数据，类型无关
+  void (*deleter)(const Slice&, void* value);//为键值对的析构函数指针
+  LRUHandle* next_hash;//为开放式哈希表中同一个桶下存储链表时使用的指针
+  LRUHandle* next;//双向循环链表的前后指针
+  LRUHandle* prev;//双向循环链表的前后指针
+  size_t charge;  // TODO(opt): Only allow uint32_t? 为当前节点的缓存费用，比如一个字符串的费用可能就是它的长度
+  size_t key_length;//key的长度
+  bool in_cache;     // Whether entry is in the cache. 为节点是否在缓存里的标志
+  uint32_t refs;     // References, including cache reference, if present.引用计数，当计数为0时可以用deleter清理掉
+  uint32_t hash;     // Hash of key(); used for fast sharding and comparisons 为key的哈希值
+  char key_data[1];  // Beginning of key 为变长的key数据，最小长度为1，malloc时动态指定长度
 
   Slice key() const {
     // next_ is only equal to this if the LRU handle is the list head of an
@@ -76,7 +76,7 @@ class HandleTable {
     return *FindPointer(key, hash);
   }
 
-  LRUHandle* Insert(LRUHandle* h) {
+  LRUHandle* Insert(LRUHandle* h) {  //hash insert
     LRUHandle** ptr = FindPointer(h->key(), h->hash);
     LRUHandle* old = *ptr;
     h->next_hash = (old == nullptr ? nullptr : old->next_hash);
@@ -92,7 +92,7 @@ class HandleTable {
     return old;
   }
 
-  LRUHandle* Remove(const Slice& key, uint32_t hash) {
+  LRUHandle* Remove(const Slice& key, uint32_t hash) { //首先找到bucket，在这个链表中，移除相应的节点
     LRUHandle** ptr = FindPointer(key, hash);
     LRUHandle* result = *ptr;
     if (result != nullptr) {
@@ -104,46 +104,57 @@ class HandleTable {
 
  private:
   // The table consists of an array of buckets where each bucket is
-  // a linked list of cache entries that hash into the bucket.
-  uint32_t length_;
-  uint32_t elems_;
-  LRUHandle** list_;
-
+  // a linked list of cache entries that hash into the bucket.该表由一系列存储桶组成，其中每个存储桶都是散列到存储桶中的缓存条目的链接列表。
+  uint32_t length_; //存储桶的数量
+  uint32_t elems_;//存储哈希表中的节点数
+  LRUHandle** list_; //为桶数组
+//每一个桶里存储hash值相同的一系列节点，这些节点构成一个链表，通过next_hash属性连接
+//采用拉链法实现的哈希表称之为哈希桶
   // Return a pointer to slot that points to a cache entry that
   // matches key/hash.  If there is no such cache entry, return a
   // pointer to the trailing slot in the corresponding linked list.
   LRUHandle** FindPointer(const Slice& key, uint32_t hash) {
-    LRUHandle** ptr = &list_[hash & (length_ - 1)];
+    LRUHandle** ptr = &list_[hash & (length_ - 1)];//// 这里取模的时候，用的是length_ - 1 
+//实际上是会把最后一个bucket给浪费掉 ptr这个时候，指向bucket的地址 如果把bucket看成一个链表 ptr就指向链表头的地址ptr == &list_[i];
+//  假设能够找到相同的key/hash
+    // a. 那么这里直接就返回了相应的slot的地址!
+    //    比如，假设list[i]相等，那么，这里返回的就是&list[i]
+    // 比如a->b->nullptr
+    // 正常情况下是：如果b->hash == hash && b->key == key
+    // 那么直接返回b
+    // 这里返回的是&(a->next_hash);  
     while (*ptr != nullptr && ((*ptr)->hash != hash || key != (*ptr)->key())) {
-      ptr = &(*ptr)->next_hash;
+      ptr = &(*ptr)->next_hash;  //如果不为空就一直往前走，这里取得是next_hash的地址然后解地址得到下一个结点的地址
     }
     return ptr;
   }
 
-  void Resize() {
-    uint32_t new_length = 4;
+  void Resize() {  //re-hash过程：申请两倍内存空间，依次处理每个bucket，每个bucket里面的每个链表的每个元素，放到新的new_list[i]里面的时候，采用头插法，插入到链表中
+    uint32_t new_length = 4;//需要新申请的内存的长度
     while (new_length < elems_) {
-      new_length *= 2;
+      new_length *= 2;//新的长度小于elems_name长度直接变2倍
     }
-    LRUHandle** new_list = new LRUHandle*[new_length];
-    memset(new_list, 0, sizeof(new_list[0]) * new_length);
-    uint32_t count = 0;
-    for (uint32_t i = 0; i < length_; i++) {
-      LRUHandle* h = list_[i];
+    LRUHandle** new_list = new LRUHandle*[new_length]; //新开辟内存空间
+    memset(new_list, 0, sizeof(new_list[0]) * new_length);//清空内存
+    uint32_t count = 0;//count记录旧有的item数目
+    for (uint32_t i = 0; i < length_; i++) { //依次遍历每个旧有的item
+      LRUHandle* h = list_[i]; //取出每个item，这里是重新建立了一把hash，处理第i条hash链表上的节点
       while (h != nullptr) {
-        LRUHandle* next = h->next_hash;
-        uint32_t hash = h->hash;
+        LRUHandle* next = h->next_hash; //保存下一个hash节点
+        uint32_t hash = h->hash; //当前节点的hash值
+        // 与前面链表的方法类似，得到&new_list_[i];
+        // re-hash，只不过这个i会发生变化。
+        // 注意这里取模的技巧
+        // 由于内存分配部是2^n
+        // 所以 & (2^n-1)可以更加快速，而不是用%法。
         LRUHandle** ptr = &new_list[hash & (new_length - 1)];
-        h->next_hash = *ptr;
+        h->next_hash = *ptr; //相当于链表头插入法 h->next_hash = *ptr ;  *ptr = h;
         *ptr = h;
-        h = next;
+        h = next; //移动到下一个节点
         count++;
       }
     }
-    assert(elems_ == count);
-    delete[] list_;
-    list_ = new_list;
-    length_ = new_length;
+     
   }
 };
 

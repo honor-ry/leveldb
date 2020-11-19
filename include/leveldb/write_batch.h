@@ -74,7 +74,8 @@ class LEVELDB_EXPORT WriteBatch {
 
  private:
   friend class WriteBatchInternal;
-
+//friend class WriteBatchInternal;，这种预先定义一个友元类、后期则可以在该友元类中直接访问私有变量和方法
+//接着看 WriteBatchInternal 的定义 db/write_batch_internal.h
   std::string rep_;  // See comment in write_batch.cc for the format of rep_
 };
 

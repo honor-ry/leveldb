@@ -66,13 +66,14 @@ Other files used for miscellaneous purposes may also be present (LOCK, *.dbtmp).
 
 When the log file grows above a certain size (4MB by default):
 Create a brand new memtable and log file and direct future updates here.
+当日志文件超过一定大小，默认为4MB时：创建一个全新的内存表和日志文件，并在此处定向将来的更新。
 
-In the background:
+In the background: 在后台
 
-1. Write the contents of the previous memtable to an sstable.
-2. Discard the memtable.
-3. Delete the old log file and the old memtable.
-4. Add the new sstable to the young (level-0) level.
+1. Write the contents of the previous memtable to an sstable. 将先前的内存表的内容写入sstable
+2. Discard the memtable. 丢弃该memtable
+3. Delete the old log file and the old memtable. 删除旧的日志文件和旧的内存表
+4. Add the new sstable to the young (level-0) level.将新的sstable添加到L0
 
 ## Compactions
 
@@ -84,6 +85,10 @@ compaction and will be discarded after the compaction.  Aside: because level-0
 is special (files in it may overlap each other), we treat compactions from
 level-0 to level-1 specially: a level-0 compaction may pick more than one
 level-0 file in case some of these files overlap each other.
+当level L的大小超过限制时，我们在后台线程完成compact操作。compaction从level L中选择一个文件，并从下一level L+1中
+选择所有重叠的文件。注意：如果level L文件仅与level L+1文件的一部分重叠，则L+1的整个文件将用作compaction的输入，并且在
+compaction操作后被丢弃。 不包括L0，因为L0中的文件是允许重复的，因此需要对L0中的文件特殊对待，L0执行compaction到L1可能会选择多个L0
+文件，以防其中某些文件相互重叠。
 
 A compaction merges the contents of the picked files to produce a sequence of
 level-(L+1) files. We switch to producing a new level-(L+1) file after the
@@ -92,23 +97,31 @@ new output file when the key range of the current output file has grown enough
 to overlap more than ten level-(L+2) files.  This last rule ensures that a later
 compaction of a level-(L+1) file will not pick up too much data from
 level-(L+2).
+某一level的目标文件块大小限制为2MB，当超过限制时触发compaction操作
+每一level总的文件块限制为10个，超过限制触发某一level的compaction
 
 The old files are discarded and the new files are added to the serving state.
-
+旧文件将被丢弃，新文件被添加到sstable中
 Compactions for a particular level rotate through the key space. In more detail,
 for each level L, we remember the ending key of the last compaction at level L.
 The next compaction for level L will pick the first file that starts after this
 key (wrapping around to the beginning of the key space if there is no such
 file).
+对于每一个level L，会保存最后一次compaction的结束key
+下一次compaction选择在该key之后开始的第一个文件（如果没有这样的文件，则切换到键空间的开始）
 
 Compactions drop overwritten values. They also drop deletion markers if there
 are no higher numbered levels that contain a file whose range overlaps the
 current key.
+compaction操作将丢弃被覆盖的value，丢弃无用的删除，这里的无用是指在这个key都不在更高所有的level的key range中
+
 
 ### Timing
 
 Level-0 compactions will read up to four 1MB files from level-0, and at worst
-all the level-1 files (10MB). I.e., we will read 14MB and write 14MB.
+all the level-1 files (10MB). I.e., we will read 14MB and write 14MB.  
+L0包含4个文件,每个1MB
+L1一共10MB
 
 Other than the special level-0 compactions, we will pick one 2MB file from level
 L. In the worst case, this will overlap ~ 12 files from level L+1 (10 because
@@ -128,13 +141,16 @@ Solution 1: To reduce this problem, we might want to increase the log switching
 threshold when the number of level-0 files is large. Though the downside is that
 the larger this threshold, the more memory we will need to hold the
 corresponding memtable.
+为了降低该问题，我们可能想增加log切换的阈值，缺点就是，log文件越大，对应的memtable文件就越大，这需要更多的内存。
 
 Solution 2: We might want to decrease write rate artificially when the number of
 level-0 files goes up.
+当level 0文件过多时，人工降低写入速度
 
 Solution 3: We work on reducing the cost of very wide merges. Perhaps most of
 the level-0 files will have their blocks sitting uncompressed in the cache and
 we will only need to worry about the O(N) complexity in the merging iterator.
+降低merge开销，如把level 0都无压缩的存放在cache中。
 
 ### Number of files
 

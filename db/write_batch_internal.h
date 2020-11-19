@@ -15,7 +15,8 @@ class MemTable;
 // WriteBatchInternal provides static methods for manipulating a
 // WriteBatch that we don't want in the public WriteBatch interface.
 class WriteBatchInternal {
- public:
+ public:  //类中全是静态函数，并且附带至少一个WriteBatch* batch参数，因为友元类的原因这些
+ //函数里均可以访问writeBatch里唯一的私有成员rep_
   // Return the number of entries in the batch.
   static int Count(const WriteBatch* batch);
 

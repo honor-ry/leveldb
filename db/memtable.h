@@ -76,10 +76,10 @@ class MemTable {
 
   ~MemTable();  // Private since only Unref() should be used to delete it
 
-  KeyComparator comparator_;
-  int refs_;
-  Arena arena_;
-  Table table_;
+  KeyComparator comparator_;   //比较器
+  int refs_;  //引用计数
+  Arena arena_;  //内存池
+  Table table_; //跳表
 };
 
 }  // namespace leveldb

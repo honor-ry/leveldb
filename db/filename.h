@@ -19,13 +19,14 @@ namespace leveldb {
 class Env;
 
 enum FileType {
-  kLogFile,
-  kDBLockFile,
-  kTableFile,
-  kDescriptorFile,
-  kCurrentFile,
-  kTempFile,
+  kLogFile, //日志文件： [0-9]+.log leveldb 的写流程是先记binlog，然后写sstable，该日志文件即是 binlog。前缀数字为FileNumber。
+  kDBLockFile,//lock 文件： LOCK   一个 db 同时只能有一个 db 实例操作，通过对 LOCK 文件加文件锁（flock） 实现主动保护
+  kTableFile, //sstable 文件： [0-9]+.sst 保存数据的 sstable 文件。前缀为 FileNumber
+  kDescriptorFile,//db 元信息文件： MANIFEST-[0-9]+ 每当 db 中的状态改变（VersionSet），会将这次改变（VersionEdit）追加到descriptor文件中。 后缀数字为FileNumber。
+  kCurrentFile, //CURRENT 文件中保存当前使用的 descriptor 文件的文件名
+  kTempFile, //临时文件： [0-9]+.dbtmp 对db做修复（Repairer）时，会产生临时文件。 前缀为FileNumber
   kInfoLogFile  // Either the current one, or an old one
+  //db运行时打印日志的文件：log,db 运行时，打印的 info 日志保存在 LOG 中。 每次重新运行，如果已经存在 LOG 文件，会先将LOG文件重名成 LOG.old
 };
 
 // Return the name of the log file with the specified number

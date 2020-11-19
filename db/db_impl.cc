@@ -545,7 +545,7 @@ void DBImpl::CompactMemTable() {
   mutex_.AssertHeld();
   assert(imm_ != nullptr);
 
-  // Save the contents of the memtable as a new Table
+  // Save the contents of the memtable as a new Table  将memtable的内容另存为新表
   VersionEdit edit;
   Version* base = versions_->current();
   base->Ref();
@@ -580,12 +580,12 @@ void DBImpl::CompactRange(const Slice* begin, const Slice* end) {
     MutexLock l(&mutex_);
     Version* base = versions_->current();
     for (int level = 1; level < config::kNumLevels; level++) {
-      if (base->OverlapInLevel(level, begin, end)) {
+      if (base->OverlapInLevel(level, begin, end)) {  //将level中的range与begin，end有重叠的sstable描述符放入inputs中
         max_level_with_files = level;
       }
     }
   }
-  TEST_CompactMemTable();  // TODO(sanjay): Skip if memtable does not overlap
+  TEST_CompactMemTable();  // TODO(sanjay): Skip if memtable does not overlap 如果memtable没有重复的则跳过
   for (int level = 0; level < max_level_with_files; level++) {
     TEST_CompactRange(level, begin, end);
   }
@@ -695,22 +695,22 @@ void DBImpl::BackgroundCall() {
 }
 
 void DBImpl::BackgroundCompaction() {
-  mutex_.AssertHeld();
+  mutex_.AssertHeld(); //如果当前线程持有互斥锁，则不执行任何操作
 
-  if (imm_ != nullptr) {
-    CompactMemTable();
+  if (imm_ != nullptr) {   //如果有转换的memtable，直接将memtable写入sstable即返回
+    CompactMemTable();  //将imm_写到level 0
     return;
   }
 
   Compaction* c;
   bool is_manual = (manual_compaction_ != nullptr);
   InternalKey manual_end;
-  if (is_manual) {
+  if (is_manual) {      //用户(主动)手动触发的compaction
     ManualCompaction* m = manual_compaction_;
     c = versions_->CompactRange(m->level, m->begin, m->end);
     m->done = (c == nullptr);
     if (c != nullptr) {
-      manual_end = c->input(0, c->num_input_files(0) - 1)->largest;
+      manual_end = c->input(0, c->num_input_files(0) - 1)->largest; //取得level中最大的一个key
     }
     Log(options_.info_log,
         "Manual compaction at level-%d from %s .. %s; will stop at %s\n",
@@ -718,20 +718,22 @@ void DBImpl::BackgroundCompaction() {
         (m->end ? m->end->DebugString().c_str() : "(end)"),
         (m->done ? "(end)" : manual_end.DebugString().c_str()));
   } else {
-    c = versions_->PickCompaction();
+    c = versions_->PickCompaction();  //找出最合适compaction的level
   }
 
   Status status;
-  if (c == nullptr) {
+  if (c == nullptr) {  //如果c为空，说明没有文件需要进行compaction，无事可做了
     // Nothing to do
   } else if (!is_manual && c->IsTrivialMove()) {
     // Move file to next level
+    //如果不是主动触发的，并且level中的输入文件与level+1中无重叠，且与level + 2中重叠不大于
+  //kMaxGrandParentOverlapBytes = 10 * kTargetFileSize,直接将文件移到level+1中
     assert(c->num_input_files(0) == 1);
     FileMetaData* f = c->input(0, 0);
     c->edit()->RemoveFile(c->level(), f->number);
     c->edit()->AddFile(c->level() + 1, f->number, f->file_size, f->smallest,
                        f->largest);
-    status = versions_->LogAndApply(c->edit(), &mutex_);
+    status = versions_->LogAndApply(c->edit(), &mutex_); //写入version中，稍后分析
     if (!status.ok()) {
       RecordBackgroundError(status);
     }
@@ -741,14 +743,14 @@ void DBImpl::BackgroundCompaction() {
         static_cast<unsigned long long>(f->file_size),
         status.ToString().c_str(), versions_->LevelSummary(&tmp));
   } else {
-    CompactionState* compact = new CompactionState(c);
-    status = DoCompactionWork(compact);
+    CompactionState* compact = new CompactionState(c);  //c中包含需要compaction的文件的元信息
+    status = DoCompactionWork(compact);    //否则调用DoCompactionWork进行compact输出文件
     if (!status.ok()) {
       RecordBackgroundError(status);
     }
-    CleanupCompaction(compact);
-    c->ReleaseInputs();
-    RemoveObsoleteFiles();
+    CleanupCompaction(compact); //清理compaction过程中的临时变量
+    c->ReleaseInputs();   //清楚输入文件描述符
+    RemoveObsoleteFiles(); //删除无引用的文件
   }
   delete c;
 
@@ -762,12 +764,12 @@ void DBImpl::BackgroundCompaction() {
 
   if (is_manual) {
     ManualCompaction* m = manual_compaction_;
-    if (!status.ok()) {
+    if (!status.ok()) {   //如果compaction出错，也将手动的compaction标记为done
       m->done = true;
     }
     if (!m->done) {
       // We only compacted part of the requested range.  Update *m
-      // to the range that is left to be compacted.
+      // to the range that is left to be compacted. 我们仅compaction了所要求的范围的一部分，将*m更新为要压缩的范围  
       m->tmp_storage = manual_end;
       m->begin = &m->tmp_storage;
     }
@@ -896,15 +898,15 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   assert(versions_->NumLevelFiles(compact->compaction->level()) > 0);
   assert(compact->builder == nullptr);
   assert(compact->outfile == nullptr);
-  if (snapshots_.empty()) {
+  if (snapshots_.empty()) { //将snapshot相关的内容记录到compact信息中
     compact->smallest_snapshot = versions_->LastSequence();
   } else {
     compact->smallest_snapshot = snapshots_.oldest()->sequence_number();
   }
-
+ //遍历所有input文件
   Iterator* input = versions_->MakeInputIterator(compact->compaction);
 
-  // Release mutex while we're actually doing the compaction work
+  // Release mutex while we're actually doing the compaction work 在实际执行compaction时释放互斥锁
   mutex_.Unlock();
 
   input->SeekToFirst();
@@ -913,15 +915,18 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
   std::string current_user_key;
   bool has_current_user_key = false;
   SequenceNumber last_sequence_for_key = kMaxSequenceNumber;
-  while (input->Valid() && !shutting_down_.load(std::memory_order_acquire)) {
-    // Prioritize immutable compaction work
+  //循环判断 如果有memtable需要compact，先compact memtable
+  //依次通过上面的迭代器iterator遍历所有参与compaction的文件的所有key
+  //循环的主体工作是判断当前迭代器对应的key是否应该加入到新合并生成的文件中
+  while (input->Valid() && !shutting_down_.load(std::memory_order_acquire)) {  //每个input对应的是一个K/V
+    // Prioritize immutable compaction work 优先immutable memtable的compact操作
     if (has_imm_.load(std::memory_order_relaxed)) {
       const uint64_t imm_start = env_->NowMicros();
       mutex_.Lock();
       if (imm_ != nullptr) {
-        CompactMemTable();
+        CompactMemTable();   //将imm_写入磁盘中
         // Wake up MakeRoomForWrite() if necessary.
-        background_work_finished_signal_.SignalAll();
+        background_work_finished_signal_.SignalAll();  //wakeup等待空间的线程
       }
       mutex_.Unlock();
       imm_micros += (env_->NowMicros() - imm_start);
@@ -929,30 +934,32 @@ Status DBImpl::DoCompactionWork(CompactionState* compact) {
 
     Slice key = input->key();
     if (compact->compaction->ShouldStopBefore(key) &&
-        compact->builder != nullptr) {
-      status = FinishCompactionOutputFile(compact, input);
+        compact->builder != nullptr) { //当前level+1生成的文件和level+2中有过多的重叠
+      status = FinishCompactionOutputFile(compact, input); //写当前文件到磁盘
       if (!status.ok()) {
         break;
       }
-    }
+    }  //这里先把迭代器对应的key提取出来，因为在此之前我们可能以及遍历过多个key-value了，
+    //也就是可能已经将多个key-value写入到新的sstable中了。这里通过ShouldStopBefore函数判断是否符合生成一个新的sstable的条件，
+    //如果符合的话就将这个sstable写盘，如果不符合的话，就继续往里面加key-value。
 
     // Handle key/value, add to state, etc.
     bool drop = false;
-    if (!ParseInternalKey(key, &ikey)) {
+    if (!ParseInternalKey(key, &ikey)) { 
       // Do not hide error keys
-      current_user_key.clear();
+      current_user_key.clear();  //解码错误，清除之前的状态
       has_current_user_key = false;
       last_sequence_for_key = kMaxSequenceNumber;
     } else {
       if (!has_current_user_key ||
           user_comparator()->Compare(ikey.user_key, Slice(current_user_key)) !=
               0) {
-        // First occurrence of this user key
+        // First occurrence of this user key 第一次出现的key，将seq设置为最大标记
         current_user_key.assign(ikey.user_key.data(), ikey.user_key.size());
         has_current_user_key = true;
         last_sequence_for_key = kMaxSequenceNumber;
       }
-
+    //因为第一次出现会将last seq设置为最大， 表示上一个key的关于seq的比较结果
       if (last_sequence_for_key <= compact->smallest_snapshot) {
         // Hidden by an newer entry for same user key
         drop = true;  // (A)
@@ -1316,7 +1323,7 @@ WriteBatch* DBImpl::BuildBatchGroup(Writer** last_writer) {
 }
 
 // REQUIRES: mutex_ is held
-// REQUIRES: this thread is currently at the front of the writer queue
+// REQUIRES: this thread is currently at the front of the writer queue 该线程位于写队列的最前面
 Status DBImpl::MakeRoomForWrite(bool force) {
   mutex_.AssertHeld();
   assert(!writers_.empty());
@@ -1335,26 +1342,30 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       // individual write by 1ms to reduce latency variance.  Also,
       // this delay hands over some CPU to the compaction thread in
       // case it is sharing the same core as the writer.
+      // 当L0的文件数量要达到阈值的时候，我们每次写入都延迟1ms，
+      // 这样可以为后台的compaction腾出一定的cpu（当后台compaction
+      //和当前线程是使用的一个内核的时候）这样可以降低写入延迟的方差
+      //因为延迟被分摊到多个写上面，而不是在几个甚至一个写的时候
       mutex_.Unlock();
       env_->SleepForMicroseconds(1000);
-      allow_delay = false;  // Do not delay a single write more than once
+      allow_delay = false;  // Do not delay a single write more than once 每次写只允许延迟一次
       mutex_.Lock();
-    } else if (!force &&
+    } else if (!force &&   //当前memtable的占用量未达到阈值
                (mem_->ApproximateMemoryUsage() <= options_.write_buffer_size)) {
       // There is room in current memtable
       break;
     } else if (imm_ != nullptr) {
-      // We have filled up the current memtable, but the previous
-      // one is still being compacted, so we wait.
+      // We have filled up the current memtable, but the previous上一次memtable的compaction尚未结束，等待后台compaction完成
+      // one is still being compacted, so we wait. 
       Log(options_.info_log, "Current memtable full; waiting...\n");
       background_work_finished_signal_.Wait();
     } else if (versions_->NumLevelFiles(0) >= config::kL0_StopWritesTrigger) {
-      // There are too many level-0 files.
+      // There are too many level-0 files.   L0文件数量超过阈值，等待后台compaction完成
       Log(options_.info_log, "Too many L0 files; waiting...\n");
       background_work_finished_signal_.Wait();
     } else {
       // Attempt to switch to a new memtable and trigger compaction of old
-      assert(versions_->PrevLogNumber() == 0);
+      assert(versions_->PrevLogNumber() == 0);  //memtable达到阈值，新生成日志和memtable，并将原先的memtable转化为immutable memtable给后台compaction
       uint64_t new_log_number = versions_->NewFileNumber();
       WritableFile* lfile = nullptr;
       s = env_->NewWritableFile(LogFileName(dbname_, new_log_number), &lfile);
@@ -1373,7 +1384,7 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       mem_ = new MemTable(internal_comparator_);
       mem_->Ref();
       force = false;  // Do not force another compaction if have room
-      MaybeScheduleCompaction();
+      MaybeScheduleCompaction(); //触发后台compaction
     }
   }
   return s;
@@ -1460,14 +1471,14 @@ void DBImpl::GetApproximateSizes(const Range* range, int n, uint64_t* sizes) {
 }
 
 // Default implementations of convenience methods that subclasses of DB
-// can call if they wish
+// can call if they wish    写入
 Status DB::Put(const WriteOptions& opt, const Slice& key, const Slice& value) {
   WriteBatch batch;
   batch.Put(key, value);
   return Write(opt, &batch);
 }
 
-Status DB::Delete(const WriteOptions& opt, const Slice& key) {
+Status DB::Delete(const WriteOptions& opt, const Slice& key) { //删除某个键值对
   WriteBatch batch;
   batch.Delete(key);
   return Write(opt, &batch);

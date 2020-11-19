@@ -6,7 +6,7 @@
 
 namespace leveldb {
 
-static const int kBlockSize = 4096;
+static const int kBlockSize = 4096; //申请一个大的block 默认大小为4KB
 
 Arena::Arena()
     : alloc_ptr_(nullptr), alloc_bytes_remaining_(0), memory_usage_(0) {}
@@ -21,10 +21,10 @@ char* Arena::AllocateFallback(size_t bytes) {
   if (bytes > kBlockSize / 4) {
     // Object is more than a quarter of our block size.  Allocate it separately
     // to avoid wasting too much space in leftover bytes.
-    char* result = AllocateNewBlock(bytes);
-    return result;
+    char* result = AllocateNewBlock(bytes);  //如果申请的空间大于kBlockSize / 4 也就是1KB时，会直接申请对应长度的block返回
+    return result;  //不更新当前剩余block的起始位置和大小，这样下次申请小空间时依然可以使用当前余下的空间
   }
-
+//否则将放弃当前剩余空间，重新申请一块4KB的block再分配。
   // We waste the remaining space in the current block.
   alloc_ptr_ = AllocateNewBlock(kBlockSize);
   alloc_bytes_remaining_ = kBlockSize;

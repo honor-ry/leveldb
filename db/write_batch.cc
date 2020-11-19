@@ -24,7 +24,7 @@
 namespace leveldb {
 
 // WriteBatch header has an 8-byte sequence number followed by a 4-byte count.
-static const size_t kHeader = 12;
+static const size_t kHeader = 12; //前12字节定义为Header
 
 WriteBatch::WriteBatch() { Clear(); }
 
@@ -39,7 +39,7 @@ void WriteBatch::Clear() {
 
 size_t WriteBatch::ApproximateSize() const { return rep_.size(); }
 
-Status WriteBatch::Iterate(Handler* handler) const {
+Status WriteBatch::Iterate(Handler* handler) const {//迭代函数 WriteBatch::Iterate 会按照顺序将 rep_ 中存储的键值对操作放到 hander 上执行
   Slice input(rep_);
   if (input.size() < kHeader) {
     return Status::Corruption("malformed WriteBatch (too small)");
@@ -80,11 +80,11 @@ Status WriteBatch::Iterate(Handler* handler) const {
 }
 
 int WriteBatchInternal::Count(const WriteBatch* b) {
-  return DecodeFixed32(b->rep_.data() + 8);
+  return DecodeFixed32(b->rep_.data() + 8); //实现数值到字符串的解码
 }
 
 void WriteBatchInternal::SetCount(WriteBatch* b, int n) {
-  EncodeFixed32(&b->rep_[8], n);
+  EncodeFixed32(&b->rep_[8], n);  //实现了数值到字符串的编码
 }
 
 SequenceNumber WriteBatchInternal::Sequence(const WriteBatch* b) {
@@ -96,9 +96,9 @@ void WriteBatchInternal::SetSequence(WriteBatch* b, SequenceNumber seq) {
 }
 
 void WriteBatch::Put(const Slice& key, const Slice& value) {
-  WriteBatchInternal::SetCount(this, WriteBatchInternal::Count(this) + 1);
-  rep_.push_back(static_cast<char>(kTypeValue));
-  PutLengthPrefixedSlice(&rep_, key);
+  WriteBatchInternal::SetCount(this, WriteBatchInternal::Count(this) + 1);//首先将计数+1
+  rep_.push_back(static_cast<char>(kTypeValue));//在rep_中写入操作类型，再写入键值对
+  PutLengthPrefixedSlice(&rep_, key);//PutLengthPrefixedSlice函数会先写入字符串的长度，再写入字符串的内容
   PutLengthPrefixedSlice(&rep_, value);
 }
 
@@ -113,12 +113,12 @@ void WriteBatch::Append(const WriteBatch& source) {
 }
 
 namespace {
-class MemTableInserter : public WriteBatch::Handler {
+class MemTableInserter : public WriteBatch::Handler {//定义了一个子类MemTableInserter继承自Handler
  public:
   SequenceNumber sequence_;
   MemTable* mem_;
 
-  void Put(const Slice& key, const Slice& value) override {
+  void Put(const Slice& key, const Slice& value) override {  //将Put和Delete转到memtable上执行，memtable即为内存数据库
     mem_->Add(sequence_, kTypeValue, key, value);
     sequence_++;
   }

@@ -277,7 +277,7 @@ class VersionSet {
 
   bool ReuseManifest(const std::string& dscname, const std::string& dscbase);
 
-  void Finalize(Version* v);
+  void Finalize(Version* v); 
 
   void GetRange(const std::vector<FileMetaData*>& inputs, InternalKey* smallest,
                 InternalKey* largest);
@@ -363,12 +363,14 @@ class Compaction {
 
   Compaction(const Options* options, int level);
 
-  int level_;
-  uint64_t max_output_file_size_;
-  Version* input_version_;
-  VersionEdit edit_;
+  int level_;  //要compact的level
+  uint64_t max_output_file_size_;//生成sstable的最大size(kTargetFileSize)
+  Version* input_version_;//compact时当前的version
+  VersionEdit edit_; //记录compact过程中的操作
 
   // Each compaction reads inputs from "level_" and "level_+1"
+// inputs_[0]为 level-n 的 sstable 文件信息，
+// inputs_[1]为 level-n+1 的 sstable 文件信息
   std::vector<FileMetaData*> inputs_[2];  // The two sets of inputs
 
   // State used to check for number of overlapping grandparent files

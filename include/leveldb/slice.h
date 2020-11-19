@@ -43,12 +43,14 @@ class LEVELDB_EXPORT Slice {
   Slice& operator=(const Slice&) = default;
 
   // Return a pointer to the beginning of the referenced data
+  //返回一个指向引用数据开头的指针
   const char* data() const { return data_; }
 
   // Return the length (in bytes) of the referenced data
+  //返回引用数据的长度（以字节为单位）
   size_t size() const { return size_; }
 
-  // Return true iff the length of the referenced data is zero
+  // Return true iff the length of the referenced data is zero如果引用数据长度为0，返回true
   bool empty() const { return size_ == 0; }
 
   // Return the ith byte in the referenced data.
@@ -64,7 +66,7 @@ class LEVELDB_EXPORT Slice {
     size_ = 0;
   }
 
-  // Drop the first "n" bytes from this slice.
+  // Drop the first "n" bytes from this slice.从该分片中删除前n个字节
   void remove_prefix(size_t n) {
     assert(n <= size());
     data_ += n;
@@ -99,7 +101,7 @@ inline bool operator!=(const Slice& x, const Slice& y) { return !(x == y); }
 
 inline int Slice::compare(const Slice& b) const {
   const size_t min_len = (size_ < b.size_) ? size_ : b.size_;
-  int r = memcmp(data_, b.data_, min_len);
+  int r = memcmp(data_, b.data_, min_len);//比较data_和b.data_的前min_len个组合
   if (r == 0) {
     if (size_ < b.size_)
       r = -1;

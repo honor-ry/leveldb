@@ -40,7 +40,7 @@ class LEVELDB_EXPORT FilterPolicy {
   //
   // Warning: do not change the initial contents of *dst.  Instead,
   // append the newly constructed filter to *dst.
-  virtual void CreateFilter(const Slice* keys, int n,
+  virtual void CreateFilter(const Slice* keys, int n,   //创建filter
                             std::string* dst) const = 0;
 
   // "filter" contains the data appended by a preceding call to
@@ -48,9 +48,10 @@ class LEVELDB_EXPORT FilterPolicy {
   // the key was in the list of keys passed to CreateFilter().
   // This method may return true or false if the key was not on the
   // list, but it should aim to return false with a high probability.
-  virtual bool KeyMayMatch(const Slice& key, const Slice& filter) const = 0;
+  virtual bool KeyMayMatch(const Slice& key, const Slice& filter) const = 0; //负责判断key是否在filter中
 };
-
+//注意这个 May，即这里 Match 判断可能会出错，也允许会出错。对于布隆过滤器，如果 Key 在 filter 里，那么一定会 Match 上；
+//反之如果不在，那么有小概率也会 Match 上，进而会多做一些磁盘访问
 // Return a new filter policy that uses a bloom filter with approximately
 // the specified number of bits per key.  A good value for bits_per_key
 // is 10, which yields a filter with ~ 1% false positive rate.
