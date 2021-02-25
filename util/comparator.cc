@@ -32,7 +32,7 @@ class BytewiseComparatorImpl : public Comparator {
                              const Slice& limit) const override {
     // Find length of common prefix
     size_t min_length = std::min(start->size(), limit.size());
-    size_t diff_index = 0;
+    size_t diff_index = 0; //不同的字符所在的下标，索引
     while ((diff_index < min_length) &&
            ((*start)[diff_index] == limit[diff_index])) {
       diff_index++;

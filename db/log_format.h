@@ -11,7 +11,7 @@
 namespace leveldb {
 namespace log {
 
-enum RecordType {
+enum RecordType {  //枚举值
   // Zero is reserved for preallocated files
   kZeroType = 0,
 
@@ -24,10 +24,10 @@ enum RecordType {
 };
 static const int kMaxRecordType = kLastType;
 
-static const int kBlockSize = 32768;
+static const int kBlockSize = 32768; //32KB
 
 // Header is checksum (4 bytes), length (2 bytes), type (1 byte).
-static const int kHeaderSize = 4 + 2 + 1;
+static const int kHeaderSize = 4 + 2 + 1;//7字节
 
 }  // namespace log
 }  // namespace leveldb

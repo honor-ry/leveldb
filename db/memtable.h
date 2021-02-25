@@ -66,10 +66,10 @@ class MemTable {
   friend class MemTableIterator;
   friend class MemTableBackwardIterator;
 
-  struct KeyComparator {
+  struct KeyComparator {   //在memtable里，使用KeyComparator比较，作为skiplist的第二个模板参数
     const InternalKeyComparator comparator;
     explicit KeyComparator(const InternalKeyComparator& c) : comparator(c) {}
-    int operator()(const char* a, const char* b) const;
+    int operator()(const char* a, const char* b) const; //operator负责解析出internal key，交给comparator比较
   };
 
   typedef SkipList<const char*, KeyComparator> Table;

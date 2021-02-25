@@ -28,19 +28,19 @@ Status BuildTable(const std::string& dbname, Env* env, const Options& options,
       return s;
     }
 
-    TableBuilder* builder = new TableBuilder(options, file);
-    meta->smallest.DecodeFrom(iter->key());
+    TableBuilder* builder = new TableBuilder(options, file); //新建sstable
+    meta->smallest.DecodeFrom(iter->key()); //第一个key是最小的
     Slice key;
     for (; iter->Valid(); iter->Next()) {
       key = iter->key();
-      builder->Add(key, iter->value());
+      builder->Add(key, iter->value()); //向sstable添加key
     }
     if (!key.empty()) {
-      meta->largest.DecodeFrom(key);
+      meta->largest.DecodeFrom(key); //最后一个key是最大的
     }
 
     // Finish and check for builder errors
-    s = builder->Finish();
+    s = builder->Finish(); //写入sstable的其他block，filter block、metaindex block、index block
     if (s.ok()) {
       meta->file_size = builder->FileSize();
       assert(meta->file_size > 0);
@@ -49,7 +49,7 @@ Status BuildTable(const std::string& dbname, Env* env, const Options& options,
 
     // Finish and check for file errors
     if (s.ok()) {
-      s = file->Sync();
+      s = file->Sync(); //写入
     }
     if (s.ok()) {
       s = file->Close();

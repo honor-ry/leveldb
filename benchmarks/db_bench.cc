@@ -130,7 +130,7 @@ class RandomGenerator {
     // large enough to serve all typical value sizes we want to write.
     Random rnd(301);
     std::string piece;
-    while (data_.size() < 1048576) {
+    while (data_.size() < 1048576) { //1024*1024
       // Add a short fragment that is as compressible as specified
       // by FLAGS_compression_ratio.
       test::CompressibleString(&rnd, FLAGS_compression_ratio, 100, &piece);
@@ -152,7 +152,7 @@ class RandomGenerator {
 #if defined(__linux)
 static Slice TrimSpace(Slice s) {
   size_t start = 0;
-  while (start < s.size() && isspace(s[start])) {
+  while (start < s.size() && isspace(s[start])) { //isspace用来检查参数是否为空格符
     start++;
   }
   size_t limit = s.size();
@@ -258,7 +258,7 @@ class Stats {
     std::string extra;
     if (bytes_ > 0) {
       // Rate is computed on actual elapsed time, not the sum of per-thread
-      // elapsed times.
+      // elapsed times.运行时间 单位微妙 乘以10^-6,变为秒
       double elapsed = (finish_ - start_) * 1e-6;
       char rate[100];
       std::snprintf(rate, sizeof(rate), "%6.1f MB/s",
@@ -279,7 +279,7 @@ class Stats {
 };
 
 // State shared by all concurrent executions of the same benchmark.
-struct SharedState {
+struct SharedState {  
   port::Mutex mu;
   port::CondVar cv GUARDED_BY(mu);
   int total GUARDED_BY(mu);
@@ -432,7 +432,7 @@ class Benchmark {
 
   void Run() {
     PrintHeader();
-    Open();
+    Open();  //打开数据库
 
     const char* benchmarks = FLAGS_benchmarks;
     while (benchmarks != nullptr) {
@@ -541,7 +541,7 @@ class Benchmark {
       }
 
       if (method != nullptr) {
-        RunBenchmark(num_threads, name, method);
+        RunBenchmark(num_threads, name, method);  //运行benchmark
       }
     }
   }
@@ -596,7 +596,7 @@ class Benchmark {
       g_env->StartThread(ThreadBody, &arg[i]);
     }
 
-    shared.mu.Lock();
+    shared.mu.Lock();  //加锁
     while (shared.num_initialized < n) {
       shared.cv.Wait();
     }

@@ -31,7 +31,7 @@ Writer::Writer(WritableFile* dest, uint64_t dest_length)
 
 Writer::~Writer() = default;
 
-Status Writer::AddRecord(const Slice& slice) {
+Status Writer::AddRecord(const Slice& slice) {   //slice数据写入底层文件，可能会分多次写入
   const char* ptr = slice.data();
   size_t left = slice.size();
 
@@ -41,10 +41,10 @@ Status Writer::AddRecord(const Slice& slice) {
   Status s;
   bool begin = true;
   do {
-    const int leftover = kBlockSize - block_offset_;
-    assert(leftover >= 0);
-    if (leftover < kHeaderSize) {
-      // Switch to a new block
+    const int leftover = kBlockSize - block_offset_; //leftover记录block当前可用大小
+    assert(leftover >= 0); //assert函数的作用是如果其条件返回错误，则终止程序执行
+    if (leftover < kHeaderSize) { //如果block剩余可用大小（剩余空间不足7bytes）已经无法写入header，那么补充\x00
+      // Switch to a new block  kHeaderSize=7
       if (leftover > 0) {
         // Fill the trailer (literal below relies on kHeaderSize being 7)
         static_assert(kHeaderSize == 7, "");
@@ -60,15 +60,15 @@ Status Writer::AddRecord(const Slice& slice) {
     const size_t fragment_length = (left < avail) ? left : avail;
 
     RecordType type;
-    const bool end = (left == fragment_length);
+    const bool end = (left == fragment_length);//相等表示本次可以全部写入
     if (begin && end) {
-      type = kFullType;
+      type = kFullType; //数据能够一次写入
     } else if (begin) {
-      type = kFirstType;
+      type = kFirstType; //数据无法一次写入，标记首次写入
     } else if (end) {
-      type = kLastType;
+      type = kLastType; //数据无法一次写入，标记最后一次写入
     } else {
-      type = kMiddleType;
+      type = kMiddleType;  //数据无法一次写入时，标记中间写入
     }
 
     s = EmitPhysicalRecord(type, ptr, fragment_length);

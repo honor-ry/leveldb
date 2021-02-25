@@ -234,12 +234,12 @@ Status TableBuilder::Finish() {
       r->index_block.Add(r->last_key, Slice(handle_encoding));
       r->pending_index_entry = false;
     }
-    WriteBlock(&r->index_block, &index_block_handle);
+    WriteBlock(&r->index_block, &index_block_handle); //持久化index block，记录index block的位置到index_block_handle中
   }
 
   // Write footer
   if (ok()) {
-    Footer footer;
+    Footer footer;  //记录index_block_handle和metaindex_block_handle
     footer.set_metaindex_handle(metaindex_block_handle);
     footer.set_index_handle(index_block_handle);
     std::string footer_encoding;

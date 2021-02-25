@@ -51,13 +51,14 @@ class InternalKey;
 // Value types encoded as the last component of internal keys.
 // DO NOT CHANGE THESE ENUM VALUES: they are embedded in the on-disk
 // data structures.
-enum ValueType { kTypeDeletion = 0x0, kTypeValue = 0x1 }; //enum枚举数据类型
+enum ValueType { kTypeDeletion = 0x0, kTypeValue = 0x1 }; //enum枚举数据类型，表示写入/删除操作
 // kValueTypeForSeek defines the ValueType that should be passed when
 // constructing a ParsedInternalKey object for seeking to a particular
 // sequence number (since we sort sequence numbers in decreasing order
 // and the value type is embedded as the low 8 bits in the sequence
 // number in internal keys, we need to use the highest-numbered
 // ValueType, not the lowest).
+//用于查找
 static const ValueType kValueTypeForSeek = kTypeValue;
 
 typedef uint64_t SequenceNumber;
@@ -112,7 +113,9 @@ class InternalKeyComparator : public Comparator {
   void FindShortSuccessor(std::string* key) const override;
 
   const Comparator* user_comparator() const { return user_comparator_; }
-
+//从slice里解析出userkey，与8字节的tag:(sequence << 8) | type
+  //userkey按照字母序比较
+  //如果userkey相同，则tag按大小逆序比较，即sequence越大越靠前
   int Compare(const InternalKey& a, const InternalKey& b) const;
 };
 
@@ -205,7 +208,7 @@ class LookupKey {
   // We construct a char array of the form:
   //    klength  varint32               <-- start_
   //    userkey  char[klength]          <-- kstart_
-  //    tag      uint64
+  //    tag      uint64   //sequence && ValueType合称tag
   //                                    <-- end_
   // The array is a suitable MemTable key.
   // The suffix starting with "userkey" can be used as an InternalKey.

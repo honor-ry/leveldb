@@ -78,7 +78,7 @@ struct DBImpl::CompactionState {
 
   std::vector<Output> outputs;
 
-  // State kept for output being generated
+  // State kept for output being generated  保持状态以生成输出
   WritableFile* outfile;
   TableBuilder* builder;
 
@@ -103,7 +103,7 @@ Options SanitizeOptions(const std::string& dbname,
   ClipToRange(&result.max_file_size, 1 << 20, 1 << 30);
   ClipToRange(&result.block_size, 1 << 10, 4 << 20);
   if (result.info_log == nullptr) {
-    // Open a log file in the same directory as the db
+    // Open a log file in the same directory as the db 在数据库相同的目录中打开一个日志文件
     src.env->CreateDir(dbname);  // In case it does not exist
     src.env->RenameFile(InfoLogFileName(dbname), OldInfoLogFileName(dbname));
     Status s = src.env->NewLogger(InfoLogFileName(dbname), &result.info_log);
@@ -113,8 +113,8 @@ Options SanitizeOptions(const std::string& dbname,
     }
   }
   if (result.block_cache == nullptr) {
-    result.block_cache = NewLRUCache(8 << 20);
-  }
+    result.block_cache = NewLRUCache(8 << 20);  //缓存默认大小为8M，8*1024*1024字节
+  }  //单个block按照block_size（4096）默认大小，默认缓存一共大概能存储2048个block
   return result;
 }
 
@@ -511,7 +511,7 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   Status s;
   {
     mutex_.Unlock();
-    s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
+    s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);//将imm dump到sstable中
     mutex_.Lock();
   }
 
@@ -528,10 +528,10 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
     const Slice min_user_key = meta.smallest.user_key();
     const Slice max_user_key = meta.largest.user_key();
     if (base != nullptr) {
-      level = base->PickLevelForMemTableOutput(min_user_key, max_user_key);
+      level = base->PickLevelForMemTableOutput(min_user_key, max_user_key); //选择sstable写到哪个level
     }
     edit->AddFile(level, meta.number, meta.file_size, meta.smallest,
-                  meta.largest);
+                  meta.largest); //添加本次sstable的Filemeta 生成VersionEdit，给manifest文件记录。
   }
 
   CompactionStats stats;
@@ -549,7 +549,7 @@ void DBImpl::CompactMemTable() {
   VersionEdit edit;
   Version* base = versions_->current();
   base->Ref();
-  Status s = WriteLevel0Table(imm_, &edit, base);
+  Status s = WriteLevel0Table(imm_, &edit, base); //将数据写到L0
   base->Unref();
 
   if (s.ok() && shutting_down_.load(std::memory_order_acquire)) {
@@ -560,12 +560,12 @@ void DBImpl::CompactMemTable() {
   if (s.ok()) {
     edit.SetPrevLogNumber(0);
     edit.SetLogNumber(logfile_number_);  // Earlier logs no longer needed
-    s = versions_->LogAndApply(&edit, &mutex_);
+    s = versions_->LogAndApply(&edit, &mutex_); //早期的log不再需要，将生成的Version Edit到当前VersionSet中
   }
 
   if (s.ok()) {
     // Commit to the new state
-    imm_->Unref();
+    imm_->Unref(); //计数-1，引用计数为0时会delete当前imm_
     imm_ = nullptr;
     has_imm_.store(false, std::memory_order_release);
     RemoveObsoleteFiles();

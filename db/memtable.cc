@@ -28,6 +28,7 @@ size_t MemTable::ApproximateMemoryUsage() { return arena_.MemoryUsage(); }
 int MemTable::KeyComparator::operator()(const char* aptr,
                                         const char* bptr) const {
   // Internal keys are encoded as length-prefixed strings.
+  //分别获取internal_key并比较
   Slice a = GetLengthPrefixedSlice(aptr);
   Slice b = GetLengthPrefixedSlice(bptr);
   return comparator.Compare(a, b);
@@ -45,7 +46,7 @@ static const char* EncodeKey(std::string* scratch, const Slice& target) {
 
 class MemTableIterator : public Iterator {
  public:
-  explicit MemTableIterator(MemTable::Table* table) : iter_(table) {}
+  explicit MemTableIterator(MemTable::Table* table) : iter_(table) {}//MemTableIterator实现上也是操作skiplist的迭代器
 
   MemTableIterator(const MemTableIterator&) = delete;
   MemTableIterator& operator=(const MemTableIterator&) = delete;
@@ -71,10 +72,11 @@ class MemTableIterator : public Iterator {
   std::string tmp_;  // For passing to EncodeKey
 };
 
+//memtable通过迭代器的形式暴露底层的skiplist跳表  table_就是底层的skiplist，负责管理数据，存储类型为const char*，比较方式为KeyComparator
 Iterator* MemTable::NewIterator() { return new MemTableIterator(&table_); }
 
 void MemTable::Add(SequenceNumber s, ValueType type, const Slice& key,
-                   const Slice& value) {
+                   const Slice& value) {//SequenceNumber是一个整数值，随着写入操作递增，seq越大表明该操作越新，type表示操作类型
   // Format of an entry is concatenation of:
   //  key_size     : varint32 of internal_key.size()
   //  key bytes    : char[internal_key.size()]
